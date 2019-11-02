@@ -24,8 +24,7 @@ func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 		SendError(w, 400, "missing valid feed(s)")
 		return
 	}
-	i := 0
-	fmt.Printf("***** %v\n\n", (1/i - 1))
+
 	// Create a new connection
 	connection := NewSubscription()
 
@@ -41,9 +40,10 @@ func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Prepare the feed uid list
 	feedUUIDs := make([]string, 0)
 	for _, f := range feeds {
-		feedUUIDs = append(feedUUIDs, string(f.id))
+		feedUUIDs = append(feedUUIDs, f.name)
 	}
 
 	resp := struct {
@@ -65,12 +65,14 @@ func ListenHandler(w http.ResponseWriter, r *http.Request) {
 	defer sendInternalError(w)
 
 	subscriptionID := getSubscription(r)
-	connection, err := GetSubscription(subscriptionID)
+	subscription, err := GetSubscription(subscriptionID)
 	if err != nil {
 		SendError(w, 403, "not valid subscriptionID")
 		return
 	}
-	connection.handler(w, r)
+
+	// Exec the handler saved in the subscription object
+	subscription.handler(w, r)
 	return
 }
 
