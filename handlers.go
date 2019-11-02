@@ -12,6 +12,31 @@ func sendInternalError(w http.ResponseWriter) {
 	}
 }
 
+// CreateFeed creates a new feed in the system
+func CreateFeed(w http.ResponseWriter, r *http.Request) {
+	// Send an internal error in case of panic.
+	defer sendInternalError(w)
+
+	// Check feeds
+	feeds := extractFeeds(r)
+	if len(feeds) == 0 {
+		SendError(w, 400, "missing valid feed(s)")
+		return
+	}
+	if len(feeds) > 1 {
+		SendError(w, 400, "to many feeds")
+		return
+	}
+
+	_, err := NewFeed(feeds[0])
+	if err != nil {
+		SendError(w, 500, "can not create feed "+feeds[0])
+		return
+	}
+
+	SendResponse(w, "ok")
+}
+
 // SubscribeHandler is the handler to be use to listen for subscriptions
 func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 
@@ -64,7 +89,7 @@ func ListenHandler(w http.ResponseWriter, r *http.Request) {
 	// Send an internal error in case of panic.
 	defer sendInternalError(w)
 
-	subscriptionID := getSubscription(r)
+	subscriptionID := extractSubscription(r)
 	subscription, err := GetSubscription(subscriptionID)
 	if err != nil {
 		SendError(w, 403, "not valid subscriptionID")
@@ -79,11 +104,8 @@ func ListenHandler(w http.ResponseWriter, r *http.Request) {
 func getFeeds(r *http.Request) []*Feed {
 	var feeds = make([]*Feed, 0)
 
-	var ok bool
-	// Search in URL
-	feedNames, ok := r.URL.Query()["feed"]
-
-	if ok == true && len(feedNames) > 0 {
+	feedNames := extractFeeds(r)
+	if len(feedNames) > 0 {
 		for _, feedName := range feedNames {
 			feed, err := GetFeedFromName(feedName)
 			if err == nil {
@@ -92,12 +114,25 @@ func getFeeds(r *http.Request) []*Feed {
 		}
 	}
 	return feeds
+}
+
+func extractFeeds(r *http.Request) []string {
+	var feedsNames = make([]string, 0)
+
+	var ok bool
+	// Search in URL
+	extractedFeedNames, ok := r.URL.Query()["feed"]
+
+	if ok == true && len(extractedFeedNames) > 0 {
+		return extractedFeedNames
+	}
+	return feedsNames
 
 	// Search in body
 	// TODO
 }
 
-func getSubscription(r *http.Request) (subscriptionID uuid) {
+func extractSubscription(r *http.Request) (subscriptionID uuid) {
 	var ok bool
 
 	// Search in URL
