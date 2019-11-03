@@ -44,8 +44,9 @@ func NewFeed(feedName string) (*Feed, error) {
 
 // GetFeed returns a feed object ptr, if exists
 func GetFeed(id uuid) (*Feed, error) {
-	f := new(Feed)
-	if _, exists := feeds[id]; exists == false {
+	var f *Feed
+	var exists bool
+	if f, exists = feeds[id]; exists == false {
 		return f, errors.New("feed " + string(id) + " does not exists")
 	}
 	return f, nil

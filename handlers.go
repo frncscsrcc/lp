@@ -34,7 +34,8 @@ func CreateFeed(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	SendResponse(w, "ok")
+	SendOK(w)
+	return
 }
 
 // SubscribeHandler is the handler to be use to listen for subscriptions
@@ -51,15 +52,20 @@ func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Create a new connection
-	connection := NewSubscription()
+	subscription := NewSubscription()
 
-	// Prepare a new listener handler and save in the connection object
+	// Subscribe the feeds
+	for _, feed := range feeds {
+		subscription.Subscribe(feed)
+	}
+
+	// Prepare a new listener handler and save in the subscription object
 	listenHandler := func(w http.ResponseWriter, r *http.Request) {
 		SendResponse(w, "YES!")
 	}
 
 	// Returns an error if it can not return a new listener handler
-	err := connection.SetHandler(listenHandler)
+	err := subscription.SetHandler(listenHandler)
 	if err != nil {
 		SendError(w, 500, "can not return a new connection")
 		return
@@ -76,7 +82,7 @@ func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 		ConnectionID string
 	}{
 		feedUUIDs,
-		string(connection.id),
+		string(subscription.id),
 	}
 	SendResponse(w, resp)
 
@@ -98,6 +104,38 @@ func ListenHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Exec the handler saved in the subscription object
 	subscription.handler(w, r)
+	return
+}
+
+// NotifyEvent notify a new event
+func NotifyEvent(w http.ResponseWriter, r *http.Request) {
+
+	// Send an internal error in case of panic.
+	defer sendInternalError(w)
+
+	// Check feeds
+	feeds := getFeeds(r)
+	if len(feeds) == 0 {
+		SendError(w, 400, "missing valid feed(s)")
+		return
+	}
+	if len(feeds) > 1 {
+		SendError(w, 400, "too many feeds")
+		return
+	}
+
+	e := struct {
+		x int
+		y int
+	}{1, 2}
+
+	_, err := NewEvent(feeds[0].id, e)
+	if err != nil {
+		SendError(w, 500, "can not register event")
+		return
+	}
+
+	SendOK(w)
 	return
 }
 

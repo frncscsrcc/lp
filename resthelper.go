@@ -27,6 +27,22 @@ func SendError(w http.ResponseWriter, code int, message string) {
 	fmt.Fprintf(w, json)
 }
 
+// SendOK returns a generic OK messages
+func SendOK(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	object := struct {
+		Error   bool
+		Message string
+	}{false, "OK"}
+	json, err := toJSON(object)
+	if err != nil {
+		SendError(w, 500, err.Error())
+		return
+	}
+	fmt.Fprintf(w, json)
+}
+
 // SendResponse returns a generic JSON message
 func SendResponse(w http.ResponseWriter, object interface{}) {
 	fmt.Printf("%+v\n", object)

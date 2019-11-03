@@ -1,16 +1,16 @@
 package lp
 
-type State int
+type state int
 
 const (
-	WAITING State = iota + 1
-	ABORTED
-	TIMEOUT
-	OK
-	READY
+	stateWaiting state = iota + 1
+	stateAborted
+	stateTimeout
+	stateOk
+	stateReady
 )
 
-func (s State) String() string {
+func (s state) String() string {
 	switch s {
 	case 1:
 		return "Waiting for events"
