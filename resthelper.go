@@ -43,6 +43,22 @@ func SendOK(w http.ResponseWriter) {
 	fmt.Fprintf(w, json)
 }
 
+// SendTimeout returns a timeout message
+func SendTimeout(w http.ResponseWriter) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(408)
+	object := struct {
+		Error   bool
+		Message string
+	}{true, "timeout"}
+	json, err := toJSON(object)
+	if err != nil {
+		SendError(w, 500, err.Error())
+		return
+	}
+	fmt.Fprintf(w, json)
+}
+
 // SendResponse returns a generic JSON message
 func SendResponse(w http.ResponseWriter, object interface{}) {
 	fmt.Printf("%+v\n", object)

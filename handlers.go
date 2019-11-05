@@ -3,6 +3,8 @@ package lp
 import (
 	"fmt"
 	"net/http"
+	"strconv"
+	"time"
 )
 
 func sendInternalError(w http.ResponseWriter) {
@@ -59,18 +61,6 @@ func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 		subscription.Subscribe(feed)
 	}
 
-	// Prepare a new listener handler and save in the subscription object
-	listenHandler := func(w http.ResponseWriter, r *http.Request) {
-		SendResponse(w, "YES!")
-	}
-
-	// Returns an error if it can not return a new listener handler
-	err := subscription.SetHandler(listenHandler)
-	if err != nil {
-		SendError(w, 500, "can not return a new connection")
-		return
-	}
-
 	// Prepare the feed uid list
 	feedUUIDs := make([]string, 0)
 	for _, f := range feeds {
@@ -102,8 +92,52 @@ func ListenHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Exec the handler saved in the subscription object
-	subscription.handler(w, r)
+	// Check if there are listening connections
+	subscription.l.Lock()
+	if subscription.listening {
+		// Send an abort signal to previous listening connection
+		subscription.cc <- communicationChannel{state: stateAbort}
+	}
+	// Set there is an active listening connection
+	subscription.listening = true
+	subscription.l.Unlock()
+
+	// Timeout
+	timeout := extractTimeout(r)
+	if timeout == 0 {
+		timeout = 30
+	}
+
+	// Wait for some signal...
+	select {
+
+	// A message is sent in the communication channel
+	case commChannel := <-subscription.cc:
+
+		// Events are sent in the communication channel
+		if commChannel.state == stateReady {
+			subscription.l.Lock()
+			subscription.listening = false
+			SendResponse(w, "DATA!")
+			subscription.l.Unlock()
+			return
+		}
+
+		// An abort signal is sent to the communication channel
+		if commChannel.state == stateAbort {
+			SendError(w, 500, "ABORTED")
+			return
+		}
+
+	// Timeout is triggered
+	case <-time.After(time.Duration(timeout) * time.Second):
+		subscription.l.Lock()
+		subscription.listening = false
+		SendTimeout(w)
+		subscription.l.Unlock()
+		return
+	}
+
 	return
 }
 
@@ -179,6 +213,22 @@ func extractSubscription(r *http.Request) (subscriptionID uuid) {
 		return uuid(subscriptionIDs[0])
 	}
 	return subscriptionID
+
+	// Search in body
+	// TODO
+}
+
+func extractTimeout(r *http.Request) int {
+	var ok bool
+
+	// Search in URL
+	timeoutStrings, ok := r.URL.Query()["timeout"]
+	if ok == true && len(timeoutStrings) == 1 {
+		if timeoutInt, err := strconv.Atoi(timeoutStrings[0]); err == nil {
+			return timeoutInt
+		}
+	}
+	return 0
 
 	// Search in body
 	// TODO

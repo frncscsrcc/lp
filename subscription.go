@@ -3,7 +3,6 @@ package lp
 import (
 	"errors"
 	"fmt"
-	"net/http"
 	"sync"
 )
 
@@ -15,13 +14,12 @@ func init() {
 
 // Subscription is the object that reppresent a connection
 type Subscription struct {
-	l            sync.Mutex
-	id           uuid
-	feeds        map[uuid]*Feed
-	handlerIsSet bool
-	handler      func(http.ResponseWriter, *http.Request)
-	channel      chan state
-	events       []*Event
+	l         sync.Mutex
+	id        uuid
+	feeds     map[uuid]*Feed
+	listening bool
+	cc        chan communicationChannel
+	events    []*Event
 }
 
 // NewSubscription tries to create a new connection object and returns it
@@ -30,9 +28,9 @@ func NewSubscription() *Subscription {
 	s := new(Subscription)
 	s.id = id
 	s.feeds = make(map[uuid]*Feed)
-	s.channel = make(chan state)
+	s.cc = make(chan communicationChannel)
 	s.events = make([]*Event, 0)
-	s.handlerIsSet = false
+	s.listening = false
 	subscriptions[s.id] = s
 	return s
 }
@@ -47,22 +45,6 @@ func GetSubscription(id uuid) (*Subscription, error) {
 	}
 
 	return c, nil
-}
-
-// SetHandler register the active handler for this connection
-func (s *Subscription) SetHandler(h func(http.ResponseWriter, *http.Request)) error {
-	if s.handlerIsSet {
-		// If an handler is already present, sent an ABORT message
-		s.channel <- stateAborted
-		// Wait the previous handler sent the ABORT message
-		done := <-s.channel
-		if done != stateReady {
-			return errors.New("can not send abort response to connection " + string(s.id))
-		}
-	}
-	s.handler = h
-	s.handlerIsSet = true
-	return nil
 }
 
 // Subscribe allows a connection to subscribe to a particular feed

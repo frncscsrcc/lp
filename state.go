@@ -4,7 +4,7 @@ type state int
 
 const (
 	stateWaiting state = iota + 1
-	stateAborted
+	stateAbort
 	stateTimeout
 	stateOk
 	stateReady
