@@ -18,7 +18,7 @@ type Subscription struct {
 	id        uuid
 	feeds     map[uuid]*Feed
 	listening bool
-	cc        chan communicationChannel
+	signal    chan state
 	events    []*Event
 }
 
@@ -28,7 +28,7 @@ func NewSubscription() *Subscription {
 	s := new(Subscription)
 	s.id = id
 	s.feeds = make(map[uuid]*Feed)
-	s.cc = make(chan communicationChannel)
+	s.signal = make(chan state)
 	s.events = make([]*Event, 0)
 	s.listening = false
 	subscriptions[s.id] = s
@@ -71,7 +71,46 @@ func (s *Subscription) Unsubscribe(feed *Feed) error {
 func (s *Subscription) NotifyEvent(e *Event) {
 	s.l.Lock()
 	defer s.l.Unlock()
+
 	s.events = append(s.events, e)
+
+	// If a listener is connected, notify an event is ready
+	if s.listening {
+		s.signal <- stateReady
+	}
+}
+
+// CheckForEvents checks if there are events in the subscriber queue,
+// in case send them in the communicationChannel
+func (s *Subscription) CheckForEvents() {
+	s.l.Lock()
+	defer s.l.Unlock()
+
+	if len(s.events) == 0 {
+		return
+	}
+
+	s.signal <- stateReady
+}
+
+// GetEvents returns the events for this subscription
+func (s *Subscription) GetEvents() []*Event {
+	s.l.Lock()
+	defer s.l.Unlock()
+
+	events := make([]*Event, 0)
+	if len(s.events) == 0 {
+		return events
+	}
+
+	for _, e := range s.events {
+		events = append(events, e)
+	}
+
+	// Clean the list for this subscription
+	s.events = make([]*Event, 0)
+
+	return events
 }
 
 func (s *Subscription) String() string {

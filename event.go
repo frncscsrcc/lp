@@ -27,12 +27,8 @@ func init() {
 }
 
 // NewEvent generate a new event and prepare the internal data model
-func NewEvent(feedID uuid, payload interface{}) (*Event, error) {
+func NewEvent(feed *Feed, payload interface{}) (*Event, error) {
 	ev := new(Event)
-	feed, err := GetFeed(feedID)
-	if err != nil {
-		return ev, err
-	}
 
 	// Prepare the event
 	ev.id = newUUID()

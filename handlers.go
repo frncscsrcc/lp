@@ -96,11 +96,15 @@ func ListenHandler(w http.ResponseWriter, r *http.Request) {
 	subscription.l.Lock()
 	if subscription.listening {
 		// Send an abort signal to previous listening connection
-		subscription.cc <- communicationChannel{state: stateAbort}
+		subscription.signal <- stateAbort
 	}
 	// Set there is an active listening connection
 	subscription.listening = true
 	subscription.l.Unlock()
+
+	// Check one or more event are ready in the queue. It uses a goroutine
+	// so the business logic (wait for events) could be unified
+	go subscription.CheckForEvents()
 
 	// Timeout
 	timeout := extractTimeout(r)
@@ -112,19 +116,22 @@ func ListenHandler(w http.ResponseWriter, r *http.Request) {
 	select {
 
 	// A message is sent in the communication channel
-	case commChannel := <-subscription.cc:
+	case signal := <-subscription.signal:
 
 		// Events are sent in the communication channel
-		if commChannel.state == stateReady {
+		if signal == stateReady {
+			events := subscription.GetEvents()
+
 			subscription.l.Lock()
 			subscription.listening = false
-			SendResponse(w, "DATA!")
 			subscription.l.Unlock()
+
+			SendEvents(w, events)
 			return
 		}
 
 		// An abort signal is sent to the communication channel
-		if commChannel.state == stateAbort {
+		if signal == stateAbort {
 			SendError(w, 500, "ABORTED")
 			return
 		}
@@ -163,7 +170,7 @@ func NotifyEvent(w http.ResponseWriter, r *http.Request) {
 		y int
 	}{1, 2}
 
-	_, err := NewEvent(feeds[0].id, e)
+	_, err := NewEvent(feeds[0], e)
 	if err != nil {
 		SendError(w, 500, "can not register event")
 		return

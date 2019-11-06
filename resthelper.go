@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"time"
 )
 
 // ErrorResponse is the generic error struct
@@ -12,6 +13,18 @@ type ErrorResponse struct {
 	Error     bool
 	ErrorCode int
 	Message   string
+}
+
+// EventResponse is the exported data reppresentation
+type EventResponse struct {
+	TimeStamp time.Time
+	Payload   interface{}
+}
+
+// EventsResponse is the final response, in case of event(s)
+type EventsResponse struct {
+	Error  bool
+	Events []EventResponse
 }
 
 // SendError encode an error as JSON
@@ -52,6 +65,28 @@ func SendTimeout(w http.ResponseWriter) {
 		Message string
 	}{true, "timeout"}
 	json, err := toJSON(object)
+	if err != nil {
+		SendError(w, 500, err.Error())
+		return
+	}
+	fmt.Fprintf(w, json)
+}
+
+// SendEvents returns the events
+func SendEvents(w http.ResponseWriter, events []*Event) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+
+	er := EventsResponse{
+		Error:  false,
+		Events: make([]EventResponse, 0),
+	}
+
+	for _, e := range events {
+		er.Events = append(er.Events, EventResponse{e.ts, e.payload})
+	}
+
+	json, err := toJSON(er)
 	if err != nil {
 		SendError(w, 500, err.Error())
 		return
