@@ -15,16 +15,16 @@ type ErrorResponse struct {
 	Message   string
 }
 
-// EventResponse is the exported data reppresentation
-type EventResponse struct {
+// EventData is the exported data reppresentation
+type EventData struct {
 	TimeStamp time.Time
 	Payload   interface{}
 }
 
-// EventsResponse is the final response, in case of event(s)
-type EventsResponse struct {
+// EventsData is the final response, in case of event(s)
+type EventsData struct {
 	Error  bool
-	Events []EventResponse
+	Events []EventData
 }
 
 // SendError encode an error as JSON
@@ -77,13 +77,13 @@ func SendEvents(w http.ResponseWriter, events []*Event) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
-	eventsResponse := EventsResponse{
+	eventsResponse := EventsData{
 		Error:  false,
-		Events: make([]EventResponse, 0),
+		Events: make([]EventData, 0),
 	}
 
 	for _, e := range events {
-		eventsResponse.Events = append(eventsResponse.Events, EventResponse{e.ts, e.payload})
+		eventsResponse.Events = append(eventsResponse.Events, EventData{e.ts, e.payload})
 	}
 
 	json, err := toJSON(eventsResponse)
@@ -112,6 +112,13 @@ func toJSON(object interface{}) (string, error) {
 		return "", err
 	}
 	return string(json), nil
+}
+
+func fromJSON(byt []byte, dataStructure interface{}) error {
+	if err := json.Unmarshal(byt, &dataStructure); err != nil {
+		return err
+	}
+	return nil
 }
 
 // LogRequest logs each request
