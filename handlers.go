@@ -1,7 +1,10 @@
 package lp
 
 import (
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -9,7 +12,7 @@ import (
 
 func sendInternalError(w http.ResponseWriter) {
 	if recovered := recover(); recovered != nil {
-		fmt.Println(recovered)
+		log.Println(recovered)
 		SendError(w, 500, "internal server error")
 	}
 }
@@ -68,8 +71,8 @@ func SubscribeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := struct {
-		Feeds        []string
-		ConnectionID string
+		Feeds          []string
+		SubscriptionID string
 	}{
 		feedUUIDs,
 		string(subscription.id),
@@ -125,7 +128,6 @@ func ListenHandler(w http.ResponseWriter, r *http.Request) {
 			subscription.l.Lock()
 			subscription.listening = false
 			subscription.l.Unlock()
-
 			SendEvents(w, events)
 			return
 		}
@@ -165,19 +167,33 @@ func NotifyEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e := struct {
-		x int
-		y int
-	}{1, 2}
-
-	_, err := NewEvent(feeds[0], e)
+	bodyString, err := getBodyString(r)
 	if err != nil {
-		SendError(w, 500, "can not register event")
+		SendError(w, 400, "can not parse body")
+	}
+	payload, err := parserFunction(bodyString)
+	if err != nil {
+		SendError(w, 500, "missing event parser function")
+	}
+
+	_, newEventError := NewEvent(feeds[0], payload)
+	if newEventError != nil {
+		SendError(w, 500, fmt.Sprintf("%s", newEventError))
 		return
 	}
 
 	SendOK(w)
 	return
+}
+
+func getBodyString(r *http.Request) (string, error) {
+	// Read body
+	b, err := ioutil.ReadAll(r.Body)
+	defer r.Body.Close()
+	if err != nil {
+		return "", errors.New("can not parse body")
+	}
+	return string(b), nil
 }
 
 func getFeeds(r *http.Request) []*Feed {

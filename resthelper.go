@@ -31,7 +31,7 @@ type EventsResponse struct {
 func SendError(w http.ResponseWriter, code int, message string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-	fmt.Printf("%d , %s\n", code, message)
+	log.Printf("ERROR: [%d] %s\n", code, message)
 	json, err := toJSON(ErrorResponse{true, code, message})
 	if err != nil {
 		SendError(w, 500, err.Error())
@@ -77,16 +77,16 @@ func SendEvents(w http.ResponseWriter, events []*Event) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 
-	er := EventsResponse{
+	eventsResponse := EventsResponse{
 		Error:  false,
 		Events: make([]EventResponse, 0),
 	}
 
 	for _, e := range events {
-		er.Events = append(er.Events, EventResponse{e.ts, e.payload})
+		eventsResponse.Events = append(eventsResponse.Events, EventResponse{e.ts, e.payload})
 	}
 
-	json, err := toJSON(er)
+	json, err := toJSON(eventsResponse)
 	if err != nil {
 		SendError(w, 500, err.Error())
 		return
@@ -96,7 +96,6 @@ func SendEvents(w http.ResponseWriter, events []*Event) {
 
 // SendResponse returns a generic JSON message
 func SendResponse(w http.ResponseWriter, object interface{}) {
-	fmt.Printf("%+v\n", object)
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
 	json, err := toJSON(object)

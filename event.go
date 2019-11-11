@@ -2,6 +2,8 @@ package lp
 
 import (
 	"encoding/json"
+	"errors"
+	"log"
 	"sync"
 	"time"
 )
@@ -21,14 +23,33 @@ type eventList struct {
 
 var events *eventList
 
+// EventParserFunction is the signature of the function must be provided in
+// order to parse an incoming JSON to an internal Event.paload
+type EventParserFunction func(JSON string) (interface{}, error)
+
+var parserFunction EventParserFunction
+
 func init() {
 	events = new(eventList)
 	events.list = make([]*Event, 0)
+	parserFunction = func(bodyString string) (interface{}, error) {
+		return nil, errors.New("Parser function not registered")
+	}
+}
+
+// RegisterEventParser sets the event parse logic function
+func RegisterEventParser(f EventParserFunction) {
+	parserFunction = f
 }
 
 // NewEvent generate a new event and prepare the internal data model
 func NewEvent(feed *Feed, payload interface{}) (*Event, error) {
 	ev := new(Event)
+
+	// Check if they are registered listeners
+	if len(feed.subscriptions) == 0 {
+		return ev, errors.New("no subscribers, this event will be lost")
+	}
 
 	// Prepare the event
 	ev.id = newUUID()
@@ -38,6 +59,8 @@ func NewEvent(feed *Feed, payload interface{}) (*Event, error) {
 
 	// Append the event to the global list
 	events.Append(ev)
+
+	log.Printf("New event received, broadcasting to %d clients.\n", len(feed.subscriptions))
 
 	// Notify listener
 	for _, s := range feed.subscriptions {

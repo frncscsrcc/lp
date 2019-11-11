@@ -2,7 +2,7 @@ package lp
 
 import (
 	"errors"
-	"fmt"
+	"log"
 	"sync"
 )
 
@@ -67,7 +67,7 @@ func (s *Subscription) Unsubscribe(feed *Feed) error {
 	return nil
 }
 
-// NotifyEvent notify the event to this subscription list
+// NotifyEvent notifies the event to this subscription list
 func (s *Subscription) NotifyEvent(e *Event) {
 	s.l.Lock()
 	defer s.l.Unlock()
@@ -119,9 +119,9 @@ func (s *Subscription) String() string {
 
 // Log logs connection in STDOUT
 func (s *Subscription) Log() {
-	fmt.Printf("%s\n", string(s.id))
+	log.Printf("%s\n", string(s.id))
 	for _, f := range s.feeds {
-		fmt.Printf("|-- %s\n", f)
+		log.Printf("|-- %s\n", f)
 	}
-	fmt.Print("\n")
+	log.Print("\n")
 }

@@ -2,7 +2,7 @@ package lp
 
 import (
 	"errors"
-	"fmt"
+	"log"
 	"sync"
 )
 
@@ -91,9 +91,9 @@ func (f *Feed) String() string {
 
 // Log logs connection in STDOUT
 func (f *Feed) Log() {
-	fmt.Printf("%s (%v)\n", f.name, f.id)
+	log.Printf("%s (%v)\n", f.name, f.id)
 	for _, c := range f.subscriptions {
-		fmt.Printf("|-- %s\n", c)
+		log.Printf("|-- %s\n", c)
 	}
-	fmt.Print("\n")
+	log.Print("\n")
 }
